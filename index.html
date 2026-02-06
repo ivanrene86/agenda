@@ -264,6 +264,44 @@
             color: #0066cc;
         }
 
+        .cita-anulacion {
+            margin-top: 12px;
+            padding: 15px;
+            background: #fff3cd;
+            border-radius: 8px;
+            border: 1px solid #ffc107;
+        }
+
+        .cita-anulacion-titulo {
+            font-weight: 700;
+            color: #856404;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .cita-anulacion-info {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            font-size: 0.9em;
+        }
+
+        .cita-anulacion-info-item {
+            display: flex;
+            gap: 8px;
+        }
+
+        .cita-anulacion-info-item strong {
+            color: #333;
+            min-width: 80px;
+        }
+
+        .cita-anulacion-info-item span {
+            color: #666;
+        }
+
         .cita-acciones {
             margin-top: 15px;
             padding-top: 15px;
@@ -381,6 +419,10 @@
 
         .modal-header.factura {
             background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+        }
+
+        .modal-header.anular {
+            background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
         }
 
         .modal-header h2 {
@@ -515,6 +557,16 @@
 
         .btn-primario.factura:hover {
             box-shadow: 0 6px 20px rgba(23, 162, 184, 0.6);
+        }
+
+        .btn-primario.anular {
+            background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
+            color: #333;
+        }
+
+        .btn-primario.anular:hover {
+            box-shadow: 0 6px 20px rgba(255, 193, 7, 0.6);
         }
 
         /* Modal de confirmación */
@@ -718,6 +770,21 @@
             padding-top: 20px;
         }
 
+        .alerta-info {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #856404;
+            font-size: 0.95em;
+        }
+
+        .alerta-info strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .container {
@@ -907,6 +974,53 @@
         </div>
     </div>
 
+    <!-- Modal para anular cita -->
+    <div class="modal" id="modal-anular">
+        <div class="modal-contenido">
+            <div class="modal-header anular">
+                <h2>⚠️ Anular Cita</h2>
+                <button class="btn-cerrar" id="btn-cerrar-modal-anular">✕</button>
+            </div>
+            
+            <form id="form-anular">
+                <div class="modal-body">
+                    <div class="alerta-info">
+                        <strong>⚠️ Atención:</strong>
+                        Al anular esta cita se marcará como cancelada. Por favor, indica el motivo de la anulación.
+                    </div>
+
+                    <div class="form-group">
+                        <label for="motivo-anulacion">Motivo de Anulación *</label>
+                        <select id="motivo-anulacion">
+                            <option value="">Seleccionar motivo...</option>
+                            <option value="no-se-presento">No se presentó</option>
+                            <option value="cancelado-cliente">Cancelado por el cliente</option>
+                            <option value="fallecimiento">Fallecimiento de la mascota</option>
+                            <option value="emergencia">Emergencia del cliente</option>
+                            <option value="reagendado">Reagendado</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="observaciones-anulacion">Observaciones (Opcional)</label>
+                        <textarea id="observaciones-anulacion" placeholder="Detalles adicionales sobre la anulación..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="fecha-anulacion">Fecha de Anulación *</label>
+                        <input type="date" id="fecha-anulacion">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-secundario" id="btn-cancelar-anular">CERRAR</button>
+                    <button type="submit" class="btn-primario anular">ANULAR CITA</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal para ver factura -->
     <div class="modal" id="modal-ver-factura">
         <div class="modal-contenido" style="max-width: 800px;">
@@ -981,6 +1095,15 @@
         const metodoPago = document.getElementById('metodo-pago');
         const fechaPago = document.getElementById('fecha-pago');
 
+        // Modal de anulación
+        const modalAnular = document.getElementById('modal-anular');
+        const btnCerrarModalAnular = document.getElementById('btn-cerrar-modal-anular');
+        const btnCancelarAnular = document.getElementById('btn-cancelar-anular');
+        const formAnular = document.getElementById('form-anular');
+        const motivoAnulacion = document.getElementById('motivo-anulacion');
+        const observacionesAnulacion = document.getElementById('observaciones-anulacion');
+        const fechaAnulacion = document.getElementById('fecha-anulacion');
+
         // Modal para ver factura
         const modalVerFactura = document.getElementById('modal-ver-factura');
         const btnCerrarVerFactura = document.getElementById('btn-cerrar-ver-factura');
@@ -1000,6 +1123,7 @@
         let idCitaEliminar = null;
         let idCitaFacturando = null;
         let idCitaViendoFactura = null;
+        let idCitaAnulando = null;
 
         // Array para almacenar las citas
         let citas = [];
@@ -1033,12 +1157,13 @@
         const diaM = String(mañana.getDate()).padStart(2, '0');
         fechaCita.min = `${añoM}-${mesM}-${diaM}`;
 
-        // Establecer la fecha actual en el campo de fecha de pago
+        // Establecer la fecha actual en el campo de fecha de pago y anulación
         const hoy = new Date();
         const añoH = hoy.getFullYear();
         const mesH = String(hoy.getMonth() + 1).padStart(2, '0');
         const diaH = String(hoy.getDate()).padStart(2, '0');
         fechaPago.value = `${añoH}-${mesH}-${diaH}`;
+        fechaAnulacion.value = `${añoH}-${mesH}-${diaH}`;
 
         // Función para formatear la fecha
         function formatearFecha(fecha) {
@@ -1074,6 +1199,19 @@
         // Función para generar número de factura
         function generarNumeroFactura(id) {
             return `FACT-${String(id).padStart(6, '0')}`;
+        }
+
+        // Función para obtener texto del motivo de anulación
+        function obtenerTextoMotivo(motivo) {
+            const motivos = {
+                'no-se-presento': 'No se presentó',
+                'cancelado-cliente': 'Cancelado por el cliente',
+                'fallecimiento': 'Fallecimiento de la mascota',
+                'emergencia': 'Emergencia del cliente',
+                'reagendado': 'Reagendado',
+                'otro': 'Otro'
+            };
+            return motivos[motivo] || motivo;
         }
 
         // Función para renderizar las citas
@@ -1163,6 +1301,28 @@
                             </div>
                         ` : ''}
                         
+                        ${cita.anulacion ? `
+                            <div class="cita-anulacion">
+                                <div class="cita-anulacion-titulo">⚠️ Motivo de Anulación</div>
+                                <div class="cita-anulacion-info">
+                                    <div class="cita-anulacion-info-item">
+                                        <strong>Motivo:</strong>
+                                        <span>${obtenerTextoMotivo(cita.anulacion.motivo)}</span>
+                                    </div>
+                                    <div class="cita-anulacion-info-item">
+                                        <strong>Fecha:</strong>
+                                        <span>${formatearFecha(cita.anulacion.fecha)}</span>
+                                    </div>
+                                    ${cita.anulacion.observaciones ? `
+                                        <div class="cita-anulacion-info-item">
+                                            <strong>Observaciones:</strong>
+                                            <span>${cita.anulacion.observaciones}</span>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
                         <div class="cita-acciones">
                             ${cita.estado === 'abierta' ? `
                                 <button class="btn-pequeño btn-editar" onclick="editarCita(${cita.id})">
@@ -1171,7 +1331,7 @@
                                 <button class="btn-pequeño btn-terminar" onclick="abrirModalFactura(${cita.id})">
                                     ✓ Terminar
                                 </button>
-                                <button class="btn-pequeño btn-anular" onclick="cambiarEstado(${cita.id}, 'anulada')">
+                                <button class="btn-pequeño btn-anular" onclick="abrirModalAnular(${cita.id})">
                                     ⊘ Anular
                                 </button>
                             ` : ''}
@@ -1207,6 +1367,21 @@
                 
                 // Abrir el modal
                 modalFactura.classList.add('active');
+            }
+        };
+
+        // Función para abrir el modal de anulación
+        window.abrirModalAnular = function(id) {
+            idCitaAnulando = id;
+            const cita = citas.find(c => c.id === id);
+            
+            if (cita) {
+                // Resetear el formulario
+                formAnular.reset();
+                fechaAnulacion.value = `${añoH}-${mesH}-${diaH}`;
+                
+                // Abrir el modal
+                modalAnular.classList.add('active');
             }
         };
 
@@ -1338,6 +1513,24 @@
             }
         });
 
+        // Event listeners para cerrar modal de anulación
+        btnCerrarModalAnular.addEventListener('click', function() {
+            modalAnular.classList.remove('active');
+            idCitaAnulando = null;
+        });
+
+        btnCancelarAnular.addEventListener('click', function() {
+            modalAnular.classList.remove('active');
+            idCitaAnulando = null;
+        });
+
+        modalAnular.addEventListener('click', function(e) {
+            if (e.target === modalAnular) {
+                modalAnular.classList.remove('active');
+                idCitaAnulando = null;
+            }
+        });
+
         // Event listeners para cerrar modal de ver factura
         btnCerrarVerFactura.addEventListener('click', function() {
             modalVerFactura.classList.remove('active');
@@ -1415,6 +1608,52 @@
             }
         });
 
+        // Validar y guardar anulación
+        formAnular.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            // Validaciones
+            if (motivoAnulacion.value === '') {
+                alert('⚠️ Debes seleccionar un motivo de anulación');
+                motivoAnulacion.focus();
+                return;
+            }
+
+            if (fechaAnulacion.value === '') {
+                alert('⚠️ Debes seleccionar una fecha de anulación');
+                fechaAnulacion.focus();
+                return;
+            }
+
+            // Buscar la cita
+            const cita = citas.find(c => c.id === idCitaAnulando);
+            
+            if (cita) {
+                // Guardar la información de anulación en la cita
+                cita.anulacion = {
+                    motivo: motivoAnulacion.value,
+                    observaciones: observacionesAnulacion.value.trim() || null,
+                    fecha: fechaAnulacion.value
+                };
+
+                // Cambiar el estado a anulada
+                cita.estado = 'anulada';
+
+                // Guardar en localStorage
+                guardarCitas();
+
+                // Cerrar modal
+                modalAnular.classList.remove('active');
+                idCitaAnulando = null;
+
+                // Mostrar mensaje
+                alert('⚠️ Cita anulada correctamente');
+
+                // Renderizar de nuevo
+                renderizarCitas(filtroEstado.value);
+            }
+        });
+
         // Función para editar una cita
         window.editarCita = function(id) {
             const cita = citas.find(c => c.id === id);
@@ -1439,20 +1678,6 @@
 
                 // Abrir el modal
                 modal.classList.add('active');
-            }
-        };
-
-        // Función para cambiar el estado de una cita
-        window.cambiarEstado = function(id, nuevoEstado) {
-            const cita = citas.find(c => c.id === id);
-            if (cita) {
-                cita.estado = nuevoEstado;
-                guardarCitas();
-                renderizarCitas(filtroEstado.value);
-                
-                if (nuevoEstado === 'anulada') {
-                    alert('⚠️ Cita anulada');
-                }
             }
         };
 
@@ -1657,7 +1882,8 @@
                     tipoMascota: tipoMascota.value,
                     sintomas: sintomas.value.trim(),
                     estado: 'abierta',
-                    factura: null
+                    factura: null,
+                    anulacion: null
                 };
 
                 citas.push(nuevaCita);
@@ -1673,7 +1899,7 @@
         // Inicializar mostrando las citas guardadas
         renderizarCitas();
 
-        console.log('✅ Administrador de Citas con Facturación cargado correctamente');
+        console.log('✅ Administrador de Citas con Facturación y Anulación cargado correctamente');
     </script>
 </body>
 </html>
